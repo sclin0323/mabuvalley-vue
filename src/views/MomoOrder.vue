@@ -4,7 +4,7 @@
     <el-card class="search-card" shadow="never">
       <el-form :inline="true" :model="queryForm" size="default" class="query-form" @submit.prevent="handleQuery">
         <el-form-item label="關鍵字">
-          <el-input v-model="queryForm.searchText" placeholder="請輸入訂單編號或顧客名稱" clearable @keyup.enter="handleQuery" />
+          <el-input v-model="queryForm.searchText" placeholder="請輸入訂單編號或商品名稱" clearable @keyup.enter="handleQuery" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="handleQuery" :loading="loading">
@@ -28,48 +28,6 @@
             fontSize: '14px'
           }" height="calc(100vh - 280px)" :virtual-scroll="true" border fit :resizable="true"
           @sort-change="handleSortChange">
-          <el-table-column type="expand">
-            <template #default="props">
-              <div class="order-details">
-                <div class="detail-section">
-                  <div class="shipping-info">
-                    <h4>收件資訊</h4>
-                    <div class="info-row">
-                      <span class="info-label">收件人:</span>
-                      <span class="info-value">{{ props.row.shippingName }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="info-label">電話:</span>
-                      <span class="info-value">{{ props.row.shippingPhone }}</span>
-                    </div>
-                    <div class="info-row">
-                      <span class="info-label">地址:</span>
-                      <span class="info-value">{{ props.row.shippingCity }} {{ props.row.shippingAddress1 }}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="line-items">
-                  <h4>訂單項目</h4>
-                  <el-table :data="props.row.lineItems" border size="small" class="inner-table">
-                    <el-table-column prop="title" label="商品名稱" min-width="200" />
-                    <el-table-column prop="sku" label="SKU" width="120" />
-                    <el-table-column prop="quantity" label="數量" width="80" align="center" />
-                    <el-table-column prop="price" label="單價" width="120" align="right">
-                      <template #default="scope">
-                        {{ formatCurrency(scope.row.price) }}
-                      </template>
-                    </el-table-column>
-                    <el-table-column label="小計" width="120" align="right">
-                      <template #default="scope">
-                        {{ formatCurrency(scope.row.price * scope.row.quantity) }}
-                      </template>
-                    </el-table-column>
-                  </el-table>
-                </div>
-              </div>
-            </template>
-          </el-table-column>
           <el-table-column v-for="(column, key) in columns" :key="key" v-bind="column">
             <template #default="scope">
               <component :is="renderColumn(column, scope.row)" />
@@ -81,6 +39,7 @@
         <div class="table-footer" v-if="orderList.length > 0">
           <div class="result-summary">
             <span>總筆數: {{ orderList.length }} 筆</span>
+            <span style="margin-left: 20px;">總銷售金額: ${{ formatCurrency(totalSalesAmount) }}</span>
           </div>
         </div>
         <!-- 無資料提示 -->
@@ -93,75 +52,77 @@
 </template>
 
 <script>
-import { inject, ref, reactive, onMounted, h } from 'vue'
+import { inject, ref, reactive, onMounted, h, computed } from 'vue'
 import { ElMessage, ElTag } from 'element-plus'
 
-// 表格欄位定義
+// 表格欄位定義 - 保留重要欄位
 const COLUMNS = {
-  name: {
-    prop: 'name',
-    label: '訂單編號',
-    minWidth: 110,
-    fixed: true,
-    resizable: true
-  },
-  createdAt: {
-    prop: 'createdAt',
-    label: '日期',
-    minWidth: 140,
+  procDate: {
+    prop: 'procDate',
+    label: '處理日期',
+    minWidth: 120,
     sortable: true,
     resizable: true
   },
-  customerName: {
-    prop: 'customerName',
-    label: '顧客',
-    minWidth: 110,
+  completeOrderNo: {
+    prop: 'completeOrderNo',
+    label: '訂單編號',
+    minWidth: 180,
+    resizable: true,
+    fixed: 'left'
+  },
+  entpGoodsNo: {
+    prop: 'entpGoodsNo',
+    label: '企業商品編號',
+    minWidth: 140,
     resizable: true
   },
-  totalPrice: {
-    prop: 'totalPrice',
-    label: '總計',
-    minWidth: 110,
+  goodsName: {
+    prop: 'goodsName',
+    label: '商品名稱',
+    minWidth: 200,
+    resizable: true,
+    showOverflowTooltip: true
+  },
+  receiverMask: {
+    prop: 'receiverMask',
+    label: '收件人',
+    minWidth: 100,
+    resizable: true
+  },
+  salePrice: {
+    prop: 'salePrice',
+    label: '售價',
+    minWidth: 100,
     align: 'right',
     sortable: true,
     resizable: true
   },
-  financialStatus: {
-    prop: 'financialStatus',
-    label: '付款狀態',
+  buyPrice: {
+    prop: 'buyPrice',
+    label: '成交價',
     minWidth: 100,
+    align: 'right',
     sortable: true,
     resizable: true
   },
-  fulfillmentStatus: {
-    prop: 'fulfillmentStatus',
+  slipNo: {
+    prop: 'slipNo',
     label: '出貨狀態',
-    minWidth: 100,
-    sortable: true,
-    resizable: true
-  },
-  tags: {
-    prop: 'tags',
-    label: '標籤',
-    minWidth: 150,
-    resizable: true
-  },
-  itemCount: {
-    label: '品項',
-    minWidth: 100,
-    align: 'center',
+    minWidth: 120,
     resizable: true
   },
   crtTimeTxt: {
     prop: 'crtTimeTxt',
     label: '同步時間',
     minWidth: 140,
-    resizable: true
+    resizable: true,
+    fixed: 'right'
   }
 }
 
 export default {
-  name: 'ShopifyOrder',
+  name: 'MomoOrder',
   setup() {
     // axios 前置變數
     const $prefix = inject('$prefix');
@@ -176,6 +137,13 @@ export default {
       searchText: ''
     })
 
+    // 計算總銷售金額
+    const totalSalesAmount = computed(() => {
+      return orderList.value.reduce((total, order) => {
+        return total + (order.buyPrice || 0)
+      }, 0)
+    })
+
     // 處理查詢
     const handleQuery = async () => {
       loading.value = true
@@ -183,19 +151,14 @@ export default {
         const params = new URLSearchParams()
         if (queryForm.searchText) params.append('searchText', queryForm.searchText)
 
-        const url = $prefix + `api/shopify/order/read?${params.toString()}`
+        const url = $prefix + `api/momo/order/read?${params.toString()}`
         const response = await fetch(url)
         if (!response.ok) throw new Error('Network response was not ok')
 
         const data = await response.json()
 
-        // 處理訂單數據，計算每個訂單的商品數量
-        const processedData = data.slice(0, 2000).map(order => ({
-          ...order,
-          itemCount: order.lineItems ? order.lineItems.length : 0
-        }))
-
-        orderList.value = processedData
+        // 處理訂單數據，限制最多2000筆
+        orderList.value = data.slice(0, 2000)
       } catch (error) {
         console.error('查詢訂單失敗:', error)
         ElMessage.error('查詢失敗，請稍後再試')
@@ -204,16 +167,10 @@ export default {
       }
     }
 
-    // 在Shopify後台查看訂單
-    const openShopifyOrder = (orderId) => {
-      const url = `https://admin.shopify.com/store/mabuvalley/orders/${orderId}`
-      window.open(url, '_blank')
-    }
-
     // 開啟外部連結函數
     const openSyncOrders = () => {
-      // 這裡設定您想要開啟的特定網址
-      const url = 'https://mabuvalley-sync-py-production.up.railway.app/api/sync/shopify/orders'
+      // momo 同步 API 網址
+      const url = 'https://mabuvalley-sync-py-production.up.railway.app/api/sync/momo/orders'
       window.open(url, '_blank')
     }
 
@@ -221,161 +178,111 @@ export default {
     const formatCurrency = (amount) => {
       return new Intl.NumberFormat('zh-TW', {
         style: 'decimal',
-        minimumFractionDigits: 2
+        minimumFractionDigits: 0
       }).format(amount)
     }
 
-    // 格式化日期時間顯示
-    const formatDateTime = (dateTimeStr) => {
-      if (!dateTimeStr) return '-'
-      const date = new Date(dateTimeStr)
-      // 使用類似圖片中的日期格式 今天 下午2:30
-      const now = new Date()
-      const isToday = date.getDate() === now.getDate() &&
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear()
-
-      const isYesterday = date.getDate() === now.getDate() - 1 &&
-        date.getMonth() === now.getMonth() &&
-        date.getFullYear() === now.getFullYear()
-
-      const hours = date.getHours()
-      const minutes = date.getMinutes().toString().padStart(2, '0')
-      const timeStr = `${hours >= 12 ? '下午' : '上午'}${hours > 12 ? hours - 12 : hours}:${minutes}`
-
-      if (isToday) {
-        return `今天 ${timeStr}`
-      } else if (isYesterday) {
-        return `昨天 ${timeStr}`
-      } else {
-        // 使用標準日期格式 (年-月-日 時間)
-        const year = date.getFullYear()
-        const month = (date.getMonth() + 1).toString().padStart(2, '0')
-        const day = date.getDate().toString().padStart(2, '0')
-        
-        return `${year}-${month}-${day} ${timeStr}`
+    // 格式化日期顯示
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '-'
+      try {
+        const date = new Date(dateStr)
+        return date.toLocaleDateString('zh-TW', {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit'
+        })
+      } catch {
+        return dateStr
       }
     }
 
-    // 獲取付款狀態標籤類型
-    const getFinancialStatusType = (status) => {
-      const statusMap = {
-        'paid': '',  // 圓點樣式，無背景
-        'pending': 'warning',
-        'refunded': 'info',
-        'partially_refunded': 'info',
-        'voided': '',
-        'default': ''
-      }
-      return statusMap[status] || statusMap.default
-    }
-
-    // 獲取付款狀態顯示文字
-    const getFinancialStatusText = (status) => {
-      const statusMap = {
-        'paid': '已付款',
-        'pending': '付款待處理',
-        'refunded': '已退款',
-        'partially_refunded': '部分退款',
-        'voided': '已退款',
-        'default': '未知'
-      }
-      return statusMap[status] || statusMap.default
-    }
-
-    // 獲取出貨狀態標籤類型
-    const getFulfillmentStatusType = (status) => {
-      const statusMap = {
-        'fulfilled': '',  // 圓點樣式，無背景
-        'partial': 'warning',
-        'unfulfilled': 'warning',
-        'default': 'warning'
-      }
-      return statusMap[status] || statusMap.default
+    // 獲取出貨狀態類型
+    const getShipmentStatusType = (status) => {
+      if (!status) return 'info'
+      // 判斷是否為數字出貨單號
+      if (/^\d+$/.test(status)) return 'success'
+      if (status.includes('未出')) return 'warning'
+      if (status.includes('已出') || status.includes('完成')) return 'success'
+      if (status.includes('退')) return 'danger'
+      return 'info'
     }
 
     // 獲取出貨狀態顯示文字
-    const getFulfillmentStatusText = (status) => {
-      if (!status) return '未出貨'
-      const statusMap = {
-        'fulfilled': '已出貨',
-        'partial': '已部分出貨',
-        'unfulfilled': '未出貨',
-        'default': '未出貨'
-      }
-      return statusMap[status] || statusMap.default
+    const getShipmentStatusText = (status) => {
+      if (!status) return '未知'
+      // 如果是數字出貨單號，顯示為已出貨
+      if (/^\d+$/.test(status)) return `已出貨 (${status})`
+      return status
     }
 
-    // 處理標籤顯示
-    const renderTags = (tags) => {
-      if (!tags) return h('span', {}, '-')
-
-      // 將標籤字符串拆分為數組
-      const tagArray = tags.split(',').map(tag => tag.trim()).filter(tag => tag)
-
-      if (tagArray.length === 0) return h('span', {}, '-')
-
-      // 創建標籤元素
-      return h('div', { class: 'tag-container' },
-        tagArray.map(tag =>
-          h(ElTag, {
-            size: 'small',
-            effect: 'plain',
-            style: {
-              marginRight: '5px',
-              marginBottom: '5px'
-            }
-          }, () => tag)
-        )
-      )
+    // 獲取訂單類型標籤類型
+    const getOrderTypeType = (type) => {
+      if (type === '一般訂單') return ''
+      if (type === '預購訂單') return 'warning'
+      if (type === '特殊訂單') return 'info'
+      return 'info'
     }
 
     // 欄位渲染函數
     const renderColumn = (column, row) => {
       switch (column.prop) {
-        case 'name':
-          return h('a', {
-            class: 'order-number',
-            onClick: () => openShopifyOrder(row.id)
-          }, row.name)
-        case 'totalPrice':
+        case 'completeOrderNo':
+          return h('span', {
+            class: 'order-number'
+          }, row.completeOrderNo)
+        case 'entpGoodsNo':
+          return h('span', {
+            class: 'goods-code',
+            style: 'font-family: Monaco, monospace; color: #666;'
+          }, row.entpGoodsNo || '-')
+        case 'goodsCode':
+          return h('span', {
+            class: 'goods-code',
+            style: 'font-family: Monaco, monospace; color: #666;'
+          }, row.goodsCode || '-')
+        case 'procDate':
+          return h('span', {
+            class: 'date-field'
+          }, formatDate(row.procDate))
+        case 'salePrice':
+        case 'buyPrice':
+          // 直接使用 formattedBuyPrice 和 formattedSalePrice 如果有的話
+          const formattedField = column.prop === 'buyPrice' ? 'formattedBuyPrice' : 'formattedSalePrice'
+          const displayValue = row[formattedField] || `${formatCurrency(row[column.prop])}`
           return h('span', {
             class: 'amount'
-          }, `$${formatCurrency(row.totalPrice)}`)
-        case 'financialStatus':
-          if (row.financialStatus === 'paid' || row.financialStatus === 'voided') {
-            return h('div', { class: 'status-with-dot' }, [
-              h('span', { class: 'status-dot paid' }),
-              h('span', { class: 'status-text' }, getFinancialStatusText(row.financialStatus))
-            ])
-          } else {
-            return h(ElTag, {
-              type: getFinancialStatusType(row.financialStatus),
-              size: 'small',
-              effect: 'light'
-            }, () => getFinancialStatusText(row.financialStatus))
-          }
-        case 'fulfillmentStatus':
-          if (row.fulfillmentStatus === 'fulfilled') {
-            return h('div', { class: 'status-with-dot' }, [
-              h('span', { class: 'status-dot fulfilled' }),
-              h('span', { class: 'status-text' }, getFulfillmentStatusText(row.fulfillmentStatus))
-            ])
-          } else {
-            return h(ElTag, {
-              type: getFulfillmentStatusType(row.fulfillmentStatus),
-              size: 'small',
-              effect: 'light'
-            }, () => getFulfillmentStatusText(row.fulfillmentStatus))
-          }
-        case 'createdAt':
-          return h('span', {}, formatDateTime(row.createdAt))
-        case 'tags':
-          return renderTags(row.tags)
+          }, displayValue)
+        case 'orderTypeStr':
+          return h(ElTag, {
+            type: getOrderTypeType(row.orderTypeStr),
+            size: 'small',
+            effect: 'light'
+          }, () => row.orderTypeStr)
+        case 'slipNo':
+          return h(ElTag, {
+            type: getShipmentStatusType(row.slipNo),
+            size: 'small',
+            effect: 'light'
+          }, () => getShipmentStatusText(row.slipNo))
+        case 'goodsName':
+          return h('span', {
+            class: 'goods-name',
+            title: row.goodsName
+          }, row.goodsName)
+        case 'receiverMask':
+          return h('span', {
+            class: 'receiver-name'
+          }, row.receiverMask || '-')
+        case 'crtTimeTxt':
+          return h('span', {
+            class: 'sync-time',
+            style: 'font-size: 12px; color: #909399;'
+          }, row.crtTimeTxt || '-')
+        case 'delyGbName':
+          // 使用 fullDeliveryInfo 如果有的話，否則使用原始值
+          return h('span', {}, row.fullDeliveryInfo || row.delyGbName || '-')
         default:
-          if (column.label === '品項') {
-            return h('span', {}, `${row.itemCount || 0} 個品項`)
-          }
           return h('span', {}, row[column.prop] || '-')
       }
     }
@@ -385,13 +292,13 @@ export default {
       if (!prop || !order) return
 
       orderList.value.sort((a, b) => {
-        if (prop === 'totalPrice') {
+        if (prop === 'salePrice' || prop === 'buyPrice') {
           return order === 'ascending'
             ? a[prop] - b[prop]
             : b[prop] - a[prop]
         }
 
-        if (prop === 'createdAt') {
+        if (prop === 'procDate') {
           const dateA = new Date(a[prop]).getTime()
           const dateB = new Date(b[prop]).getTime()
           return order === 'ascending'
@@ -399,27 +306,17 @@ export default {
             : dateB - dateA
         }
 
-        if (prop === 'financialStatus') {
-          const statusOrder = ['paid', 'pending', 'partially_refunded', 'refunded', 'voided']
-          const statusA = statusOrder.indexOf(a[prop])
-          const statusB = statusOrder.indexOf(b[prop])
-          return order === 'ascending' ? statusA - statusB : statusB - statusA
-        }
-
-        if (prop === 'fulfillmentStatus') {
-          const statusOrder = ['fulfilled', 'partial', 'unfulfilled', null]
-          const statusA = statusOrder.indexOf(a[prop])
-          const statusB = statusOrder.indexOf(b[prop])
-          return order === 'ascending' ? statusA - statusB : statusB - statusA
-        }
-
-        return 0
+        // 字串排序
+        const valueA = (a[prop] || '').toString()
+        const valueB = (b[prop] || '').toString()
+        return order === 'ascending'
+          ? valueA.localeCompare(valueB)
+          : valueB.localeCompare(valueA)
       })
     }
 
     // 頁面載入時不自動查詢
     onMounted(() => {
-      // 不再自動執行查詢
       orderList.value = [] // 確保列表初始為空
     })
 
@@ -429,11 +326,14 @@ export default {
       orderList,
       orderTableRef,
       columns: COLUMNS,
+      totalSalesAmount,
       handleQuery,
       handleSortChange,
       renderColumn,
       openSyncOrders,
-      formatCurrency
+      formatCurrency,
+      formatDate,
+      getShipmentStatusText
     }
   }
 }
@@ -488,6 +388,8 @@ export default {
   padding: 10px 16px;
   font-size: 12px;
   color: #606266;
+  display: flex;
+  justify-content: space-between;
 }
 
 .empty-state {
@@ -505,81 +407,36 @@ export default {
 .order-number {
   color: #409EFF;
   font-weight: 500;
-  cursor: pointer;
-  text-decoration: none;
+  font-family: Monaco, monospace;
 }
 
-.order-number:hover {
-  text-decoration: underline;
+.goods-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 200px;
 }
 
-.status-with-dot {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.status-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.status-dot.paid {
-  background-color: #606266;
-}
-
-.status-dot.fulfilled {
-  background-color: #606266;
-}
-
-.status-text {
+.goods-code {
   font-size: 12px;
-  color: #606266;
+  color: #666;
 }
 
-.tag-container {
-  display: flex;
-  flex-wrap: wrap;
-}
-
-/* 訂單詳情樣式 */
-.order-details {
-  padding: 16px;
-  background-color: #FAFAFA;
-}
-
-.inner-table {
-  margin-top: 8px;
-}
-
-.detail-section {
-  margin-bottom: 16px;
-}
-
-.shipping-info h4,
-.line-items h4 {
-  font-size: 14px;
-  font-weight: 600;
-  margin-bottom: 8px;
+.receiver-name {
   color: #303133;
+  font-weight: 500;
 }
 
-.info-row {
-  display: flex;
-  margin-bottom: 6px;
-}
-
-.info-label {
-  width: 60px;
+.date-field {
   color: #606266;
   font-size: 13px;
 }
 
-.info-value {
-  font-size: 13px;
-  color: #303133;
+.sync-time {
+  font-size: 12px;
+  color: #909399;
+  font-family: Monaco, monospace;
 }
 
 :deep(.el-table) {
@@ -637,6 +494,15 @@ export default {
   .query-form {
     flex-direction: column;
     align-items: stretch;
+  }
+  
+  .info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .result-summary {
+    flex-direction: column;
+    gap: 5px;
   }
 }
 </style>
